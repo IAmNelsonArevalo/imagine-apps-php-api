@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - feature/*
+  pull_request:
+    branches:
+      - development
+      - staging
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress --no-suggest --no-interaction
+
+      - name: Run Laravel unit tests
+        run: vendor/bin/phpunit
+
+      - name: Check code style with PHP_CodeSniffer
+        run: vendor/bin/phpcs --standard=PSR12 app
+
+      - name: Install Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Run Prettier
+        run: npx prettier --check .
+
+      - name: Run ESLint
+        run: npx eslint .
+
+      - name: Merge validation
+        run: |
+          if [[ ${{ github.ref }} == 'refs/heads/development' || ${{ github.ref }} == 'refs/heads/staging' || ${{ github.ref }} == 'refs/heads/master' ]]; then
+            git fetch origin ${{ github.base_ref }}
+            git diff --exit-code ${{ github.base_ref }} || (echo "Branch is not up-to-date with ${{ github.base_ref }}"; exit 1)
+
+            vendor/bin/phpunit
+            if [ $? -ne 0 ]; then
+              echo "Unit tests failed"; exit 1
+            fi
+          fi
+
+      - name: Block push to protected branches
+        run: |
+          if [[ ${{ github.ref }} == 'refs/heads/development' || ${{ github.ref }} == 'refs/heads/staging' || ${{ github.ref }} == 'refs/heads/master' ]]; then
+            echo "Pushing to ${{ github.ref }} is not allowed"; exit 1
+          fi
