@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - feature/*
+  pull_request:
+    branches:
+      - development
+      - staging
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress --no-suggest --no-interaction
+
+      - name: Run Laravel unit tests
+        run: vendor/bin/phpunit
